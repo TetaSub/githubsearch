@@ -6,8 +6,8 @@ const searchUserInput = document.querySelector(".searchUser");
 const profile = document.querySelector(".profile");
 
 class API {
-  clientId = "d47e2757ad5d0ec99ea3";
-  clientSecret = "86eb5170fbf817ea56b4c5b9801a5db9f1d8b366";
+  clientId = "0d078e2b40d49914d513";
+  clientSecret = "9f9b714539c38c9ea69876beb7d62d20cf38e58b";
 
   async getUser(userName) {
     const response = await fetch(`https://api.github.com/users/${userName}`, {
@@ -19,15 +19,27 @@ class API {
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.message);
+      throw new Error(data.message);      
     }
-
     return data;
+  }
+
+  async getRepos(userName) {
+    const response = await fetch(`https://api.github.com/users/${userName}/repos?per_page=5`, {
+      method: "GET",
+      headers: {
+        Authorization: `Basic ${btoa(this.clientId + ":" + this.clientSecret)}`,
+      },
+    });
+    const repoData = await response.json();
+    return repoData;    
   }
 }
 
-class UI {
-  showProfile(user) {
+class UI {  
+  showProfile(user, repos) {
+    const memberDate = new Date(user.created_at);
+    const formattedMemberDate = memberDate.toISOString().split('T')[0];
     profile.innerHTML = `
     <div class="card card-body mb-3">
         <div class="row">
@@ -45,15 +57,54 @@ class UI {
               <li class="list-group-item">Company: ${user.company}</li>
               <li class="list-group-item">Website/Blog: ${user.blog}</li>
               <li class="list-group-item">Location: ${user.location}</li>
-              <li class="list-group-item">Member Since: ${user.created_at}</li>
+              <li class="list-group-item">Member Since: ${formattedMemberDate}</li>
             </ul>
           </div>
         </div>
       </div>
       <h3 class="page-heading mb-3">Latest Repos</h3>
-      <div class="repos"></div>
-    `;
-  }
+      <div class="repos">
+      <table class="reposTable table table-dark table-bordered">
+          <thead>
+            <tr>
+              <th class="col-md-1">Name</th>
+              <th class="col-md-1">Last changes</th>              
+            </tr>
+          </thead>
+          <tbody>
+          </tbody>
+        </table>        
+      </div>
+    `;    
+
+    const reposTable = document.querySelector('.reposTable');
+    const reposDiv = document.querySelector('.repos');
+
+    repos.forEach(repo => {
+      const row = document.createElement('tr');
+      const nameCell = document.createElement('td');
+      const updatesCell = document.createElement('td');
+      const nameLink = document.createElement('a');
+
+      const repoDate = new Date(repo.updated_at);
+      const formattedRepoDate = repoDate.toISOString().split('T')[0];
+
+      nameLink.href = repo.html_url;
+      nameLink.textContent = repo.name;
+      updatesCell.textContent = formattedRepoDate;
+      nameCell.appendChild(nameLink);
+      row.appendChild(nameCell);
+      row.appendChild(updatesCell);          
+      reposTable.appendChild(row);
+    });
+
+    if (repos.length === 0) {      
+      reposTable.style.display = 'none';      
+      const noPublicRepoMessage = document.createElement('p');
+      noPublicRepoMessage.textContent = 'No public repositories';
+      reposDiv.appendChild(noPublicRepoMessage);
+    }
+  }  
 
   clearProfile() {
     profile.innerHTML = "";
@@ -94,16 +145,10 @@ const handleInput = async (event) => {
   try {
     const api = new API();
     const user = await api.getUser(userText);
-    // ui.clearAlert();
+    const repos = await api.getRepos(userText);
+    ui.clearAlert();
 
-    // fetch(`https://api.github.com/users/${userText}/repos?per_page=5`, {
-    //   method: "GET",
-    //   headers: {
-    //     Authorization: `Basic ${btoa(this.clientId + ":" + this.clientSecret)}`,
-    //   },
-    // });
-
-    ui.showProfile(user);
+    ui.showProfile(user, repos);
   } catch (error) {
     ui.showAlert(error.message, "alert-danger");
     ui.clearProfile();
